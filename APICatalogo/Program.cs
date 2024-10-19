@@ -11,7 +11,16 @@ builder.Services.AddControllers().AddJsonOptions(options => options.JsonSerializ
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
-
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowAll",
+        policy =>
+        {
+            policy.AllowAnyOrigin()   // Permite requisições de qualquer origem
+                  .AllowAnyMethod()   // Permite qualquer método HTTP (GET, POST, etc.)
+                  .AllowAnyHeader();  // Permite qualquer cabeçalho
+        });
+});
 //Configuração da conexao com o banco de dados
 string mySqlConnection = builder.Configuration.GetConnectionString("DefaultConnection");
 
@@ -25,7 +34,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwagger();
     app.UseSwaggerUI();
 }
-
+app.UseCors("AllowAll");
 app.UseHttpsRedirection();
 
 app.UseAuthorization();

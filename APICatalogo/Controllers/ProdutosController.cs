@@ -63,6 +63,7 @@ public class ProdutosController : ControllerBase
     [HttpPost]
     public ActionResult Post(Produto produto)
     {
+
         try
         {
             if (produto is null)
@@ -74,12 +75,10 @@ public class ProdutosController : ControllerBase
 
             return new CreatedAtRouteResult("ObterProduto", new { id = produto.ProdutoId }, produto);
         }
-        catch (Exception)
+        catch (Exception ex)
         {
-            throw new Exception("houve um erro ao cadastrar produto, aguarde alguns instantes e tente novamente...");
+            throw new Exception("Houve um problema");
         }
-
-
     }
 
     [HttpPut("{id:int}")]
