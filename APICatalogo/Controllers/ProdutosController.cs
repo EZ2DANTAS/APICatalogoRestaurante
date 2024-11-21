@@ -1,5 +1,6 @@
 ﻿using APICatalogo.Context;
 using APICatalogo.Models;
+using APICatalogo.Repository.Interfaces;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
@@ -9,124 +10,104 @@ namespace APICatalogo.Controllers;
 [ApiController]
 public class ProdutosController : ControllerBase
 {
-    private readonly AppDbContext _context;
-
-    public ProdutosController(AppDbContext context)
+    private readonly IProdutoRepository _produtoRepository;
+    private readonly IRepository<Produto> _repository;
+    private readonly IConfiguration _configuration;
+    public ProdutosController(IProdutoRepository produtoRepository,IRepository<Produto> repository, IConfiguration configuration)
     {
-        _context = context;
-    }
-
-    [HttpGet]
-    public ActionResult<IEnumerable<Produto>> Get()
-    {
-        try
-        {
-            var produtos = _context.Produtos.Take(10).ToList();
-            if (produtos is null)
-            {
-                // NotFound() só é possivel devido o Retorno ActionResult que permite retornar uma lista ou um StatusCode
-                return NotFound("Nenhum produto registrato...");
-            }
-            return produtos;
-        }
-        catch (Exception ex)
-        {
-            throw new Exception("houve um problema em obter Produtos, Aguarde uns instantes...");
-        }
-
+        _produtoRepository = produtoRepository;
+         _repository = repository;
+        _configuration = configuration;
     }
 
 
+    [HttpGet("produtos/{id}")]
+    public ActionResult<IEnumerable<Produto>> GetProdutosCategoria(int id)
+    {
+        var produtos = _produtoRepository.GetProdutosPorCategoria(id);
+        if(produtos is null)
+        {
+            return NotFound();
+        }
+        return Ok(produtos);
+    }
 
-    [HttpGet("{id:int}", Name = "ObterProduto")]
+    [HttpGet("{id:int:min(1)}", Name = "ObterProduto")]
     public ActionResult<Produto> Get(int id)
     {
-        try
+        var produto = _repository.Get(c => c.ProdutoId == id);
+        if (produto is null)
         {
-            var produto = _context.Produtos.FirstOrDefault(x => x.ProdutoId == id);
-
-            if (produto is null)
-            {
-                return NotFound("Produto não Encontrado...");
-            }
-            return produto;
+            return NotFound("Produto não Encontrado...");
         }
-        catch (Exception)
-        {
-            throw new Exception("houve um problema em obter o produto, Aguarde uns instantes...");
-        }
-
-
-
+        return Ok(produto);
     }
+
+    [HttpGet("todos")]
+    public ActionResult<IEnumerable<Produto>> Get()
+    {
+        var produtos = _repository.GetAll();
+        if (produtos is null)
+        {
+            // NotFound() só é possivel devido o Retorno ActionResult que permite retornar uma lista ou um StatusCode
+            return NotFound("Nenhum produto registrato...");
+        }
+        return Ok(produtos);
+    }
+
 
     [HttpPost]
     public ActionResult Post(Produto produto)
     {
-
-        try
+        if (produto is null)
         {
-            if (produto is null)
-            {
-                return BadRequest();
-            }
-            _context.Produtos.Add(produto);
-            _context.SaveChanges();
-
-            return new CreatedAtRouteResult("ObterProduto", new { id = produto.ProdutoId }, produto);
+            return BadRequest();
         }
-        catch (Exception ex)
-        {
-            throw new Exception("Houve um problema");
-        }
+        var prod = _repository.Create(produto);
+        return new CreatedAtRouteResult("ObterProduto", new { id = prod.ProdutoId }, prod);
     }
+
 
     [HttpPut("{id:int}")]
     public ActionResult Put(int id, Produto produto)
     {
-        try
+        if (id != produto.ProdutoId)
         {
-            if (id != produto.ProdutoId)
-            {
-                return BadRequest();
-            }
-
-            // atualiza e persiste os dados no banco de dados
-            _context.Entry(produto).State = EntityState.Modified;
-            _context.SaveChanges();
-
-            return Ok(produto);
+            return BadRequest("IDENTIFICADORES NÃO CORRESPONDEM");
         }
-        catch (Exception)
-        {
-            throw new Exception("houve um erro ao alterar produto, aguarde alguns instantes e tente novamente...");
+        // atualiza e persiste os dados no banco de dados
+        Produto resp = _repository.Update(produto);
+        if (resp != null) return Ok(produto);
 
-
-        }
+        return StatusCode(500, $"Falha ao atualizar o produto de Id = {id}");
 
     }
-
 
     [HttpDelete("{id:int}")]
     public ActionResult Delete(int id)
     {
-        try
+        var prod = _repository.Get(p => p.ProdutoId == id);
+        if (prod is null)
         {
-            var produto = _context.Produtos.FirstOrDefault(p => p.ProdutoId == id);
-
-            if (produto is null)
-            {
-                return NotFound("Produto não localizado...");
-            }
-
-            _context.Produtos.Remove(produto);
-            _context.SaveChanges();
-
-            return Ok(produto);
+            return NotFound("Produto não encontrado");
         }
-        catch (Exception)
-        {
-            throw new Exception("houve um erro ao alterar produto, aguarde alguns instantes e tente novamente...");
-        }
+
+        var prodDeletado = _repository.Delete(prod);
+        return Ok(prodDeletado);
     }
+
 }
+/*
+[HttpGet("LerArquivoConfiguracao")]
+public string GetValores()
+{
+    var valor1 = _configuration["chave1"];
+    var valor2 = _configuration["chave2"];
+    var secao1 = _configuration["secao1:chave2"];
+    return $"Chave 1: {valor1}, Chave 2: {valor2}, Secao 1 => chave2  {secao1}";
+}    
+
+// min => indica o valor minimo da requisição
+
+*/
+
